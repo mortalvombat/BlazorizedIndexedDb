@@ -1,33 +1,33 @@
-﻿using Magic.IndexedDb;
-using Magic.IndexedDb.SchemaAnnotations;
+﻿using Blazorized.IndexedDb;
+using Blazorized.IndexedDb.SchemaAnnotations;
 
 namespace IndexDb.Example
 {
-    [MagicTable("Person", DbNames.Client)]
+    [BlazorizedTable("Person", DbNames.Client)]
     public class Person
     {
-        [MagicPrimaryKey("id")]
+        [BlazorizedPrimaryKey("id")]
         public int _Id { get; set; }
 
-        [MagicIndex]
+        [BlazorizedIndex]
         public string Name { get; set; }
 
-        [MagicIndex("Age")]
+        [BlazorizedIndex("Age")]
         public int _Age { get; set; }
 
-        [MagicIndex]
+        [BlazorizedIndex]
         public int TestInt { get; set; }
 
-        [MagicUniqueIndex("guid")]
+        [BlazorizedUniqueIndex("guid")]
         public Guid GUIY { get; set; } = Guid.NewGuid();
 
-        [MagicEncrypt]
+        [BlazorizedEncrypt]
         public string Secret { get; set; }
 
-        [MagicNotMapped]
+        [BlazorizedNotMapped]
         public string DoNotMapTest { get; set; }
 
-        [MagicNotMapped]
+        [BlazorizedNotMapped]
         public string SecretDecrypted { get; set; }
 
         private bool testPrivate { get; set; } = false;

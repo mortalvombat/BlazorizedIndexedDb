@@ -1,8 +1,8 @@
-# Magic IndexedDb
+# Blazorized IndexedDb
 
 This open source library provides an IndexedDb wrapper for C# and Blazor WebAssembly applications. It simplifies working with IndexedDb and makes it similar to using LINQ to SQL.
 
-**Nuget Package Link**: https://www.nuget.org/packages/Magic.IndexedDb/1.0.4
+**Nuget Package Link**: https://www.nuget.org/packages/Blazorized.IndexedDb/1.0.4
 
 **NOTE:**
 This code is still very young. I will be making updates for this code as I come across it. I will try my best to not depreciate or break syntax already in use. But please take note of any version updates before you use my code if you're updating it in the future. As I will not guarentee right now that I won't break your stuff if you download this version and then come back in a year and get the latest version.
@@ -33,10 +33,10 @@ This code is still very young. I will be making updates for this code as I come 
 - [Installation](#installation)
 - [Usage](#usage)
   - [Setting up the project](#setting-up-the-project)
-  - [Creating a class with Magic attributes](#creating-a-class-with-magic-attributes)
+  - [Creating a class with Blazorized attributes](#creating-a-class-with-magic-attributes)
   - [Using the DbManager](#using-the-dbmanager)
 - [Attributes](#attributes)
-- [Where Method MagicQuery syntax](#Where-Method-MagicQuery-syntax)
+- [Where Method BlazorizedQuery syntax](#Where-Method-BlazorizedQuery-syntax)
 - [Standard Operations](#standard-operations)
 - [String Comparison Functions](#string-comparison-functions)
   - [Contains](#contains)
@@ -96,39 +96,39 @@ builder.Services.AddBlazorDB(options =>
 ```
 
 ~~3. Add the following scripts to the end of the body tag in your `Index.html`:~~
-~~\<script src="_content/Magic.IndexedDb/dexie.min.js">\</script>~~
-~~\<script src="_content/Magic.IndexedDb/magicDB.js">\</script>~~
+~~\<script src="_content/Blazorized.IndexedDb/dexie.min.js">\</script>~~
+~~\<script src="_content/Blazorized.IndexedDb/magicDB.js">\</script>~~
 
 3. Adding a script is now only required for versions 1.0.3 and lower. Everything above no longer requires the script tags on the index page.
 
 4. Add the following to your _Import.razor:
 
 ```csharp
-@using Magic.IndexedDb
-@inject IMagicDbFactory _MagicDb
+@using Blazorized.IndexedDb
+@inject IBlazorizedDbFactory _BlazorizedDb
 ```
 
-### Creating a class with Magic attributes
+### Creating a class with Blazorized attributes
 
-Define your class with the `MagicTable` attribute and the appropriate magic attributes for each property. For example:
+Define your class with the `BlazorizedTable` attribute and the appropriate magic attributes for each property. For example:
 
 ```csharp
-[MagicTable("Person", "DatabaseName")]
+[BlazorizedTable("Person", "DatabaseName")]
 public class Person
 {
-    [MagicPrimaryKey("id")]
+    [BlazorizedPrimaryKey("id")]
     public int _Id { get; set; }
 
-    [MagicIndex]
+    [BlazorizedIndex]
     public string Name { get; set; }
 
-    [MagicIndex("Age")]
+    [BlazorizedIndex("Age")]
     public int _Age { get; set; }
 
-    [MagicEncrypt]
+    [BlazorizedEncrypt]
     public string Secret { get; set; }
 
-    [MagicNotMapped]
+    [BlazorizedNotMapped]
     public string SecretDecrypted { get; set; }
 }
 ```
@@ -136,19 +136,19 @@ I highly suggest you always add the string parameters as that sets the IndexedDb
 
 ## Attributes
 
-- `MagicTable(string, string)`: Associates the class with a table in IndexedDb. The first parameter is the table name, and the second parameter is the database name.
-- `MagicPrimaryKey(string)`: Marks the property as the primary key. The parameter is the column name in IndexedDb.
-- `MagicIndex(string)`: Creates a searchable index for the property. The parameter is the column name in IndexedDb.
-- `MagicUniqueIndex(string)`: Creates a unique index for the property. The parameter is the column name in IndexedDb.
-- `MagicEncrypt`: Encrypts the string property when it's stored in IndexedDb.
-- `MagicNotMapped`: Excludes the property from being mapped to IndexedDb.
+- `BlazorizedTable(string, string)`: Associates the class with a table in IndexedDb. The first parameter is the table name, and the second parameter is the database name.
+- `BlazorizedPrimaryKey(string)`: Marks the property as the primary key. The parameter is the column name in IndexedDb.
+- `BlazorizedIndex(string)`: Creates a searchable index for the property. The parameter is the column name in IndexedDb.
+- `BlazorizedUniqueIndex(string)`: Creates a unique index for the property. The parameter is the column name in IndexedDb.
+- `BlazorizedEncrypt`: Encrypts the string property when it's stored in IndexedDb.
+- `BlazorizedNotMapped`: Excludes the property from being mapped to IndexedDb.
 
 ### Using the DbManager
 
 1. Get the `DbManager` for your database:
 
 ```csharp
-var manager = await _MagicDb.GetDbManager(DbNames.Client);
+var manager = await _BlazorizedDb.GetDbManager(DbNames.Client);
 ```
 
 2. Perform operations with the `DbManager`, such as adding, updating, deleting, and querying data.
@@ -180,7 +180,7 @@ Here's a grid-style documentation for the methods:
 
 This documentation explains the various query capabilities available in the `Where` method. The `Where` method provides a way to filter collections or sequences based on specific conditions. It allows the use of standard operations, string comparison functions, and case insensitive string comparisons.
 
-## Where Method MagicQuery syntax
+## Where Method BlazorizedQuery syntax
 
 | Method | Description |
 | ------ | ----------- |
@@ -190,9 +190,9 @@ This documentation explains the various query capabilities available in the `Whe
 | `OrderBy(Expression<Func<T, object>> predicate)` | Orders the query result by the specified predicate in ascending order. |
 | `OrderByDescending(Expression<Func<T, object>> predicate)` | Orders the query result by the specified predicate in descending order. |
 | `Count()` | Get the number of items in the collection. |
-| `Execute()` | Executes the MagicQuery and returns the results as an `IEnumerable<T>`. |
+| `Execute()` | Executes the BlazorizedQuery and returns the results as an `IEnumerable<T>`. |
 
-These MagicQuery methods allow you to build complex queries similar to standard LINQ in C#. Remember to call the `Execute` method at the end of your MagicQuery to execute the query and retrieve the results.
+These BlazorizedQuery methods allow you to build complex queries similar to standard LINQ in C#. Remember to call the `Execute` method at the end of your BlazorizedQuery to execute the query and retrieve the results.
 
 ## Standard Operations
 
@@ -259,7 +259,7 @@ var filteredStrings = strings.Where(s => s.StartsWith("prefix", StringComparison
 
 ## Examples
 
-To start using MagicIndexedDb, you need to create a `DbManager` instance for your specific database.
+To start using BlazorizedIndexedDb, you need to create a `DbManager` instance for your specific database.
 
 ```csharp
 private List<Person> allPeople { get; set; } = new List<Person>();
@@ -271,7 +271,7 @@ protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try
         {
-            var manager = await _MagicDb.GetDbManager(DbNames.Client);
+            var manager = await _BlazorizedDb.GetDbManager(DbNames.Client);
 
             await manager.ClearTable<Person>();
 
@@ -362,7 +362,7 @@ var whereExample = await manager.Where<Person>(x => x.Name.StartsWith("c", Strin
 
 In this example, the query returns `Person` records where the `Name` property starts with "c", "l", or "j" (case-insensitive), and the `_Age` property is greater than 35. The results are ordered by the `_Id` property and the first record is skipped.
 
-These examples demonstrate the basics of using MagicIndexedDb in a Blazor WebAssembly application. You can also perform other operations, such as updating and deleting records, by using the appropriate methods provided by the `DbManager`.
+These examples demonstrate the basics of using BlazorizedIndexedDb in a Blazor WebAssembly application. You can also perform other operations, such as updating and deleting records, by using the appropriate methods provided by the `DbManager`.
 
 
 ## Acknowledgements
@@ -373,4 +373,4 @@ https://github.com/nwestfall/BlazorDB
 Thank you to Reshiru for his Blazor.IndexedDb.Framework code as I took a great deal of inspiration from this as well.
 https://github.com/Reshiru/Blazor.IndexedDB.Framework
 
-Both projects accomplished or mostly accomplished what they were trying to do. My goal was to create a system I personally believed was easier and more fluid for developers. I'm a big fan of using Respositories with a ton of smart logic to make it so I have to write as little code as possible. In a way, Magic.IndexedDb is accomplishing what I wished I could do with IndexedDb. I also wanted a wrapper in which could easily be updated by updating the Dexie.Js file to the newer versions. This way a larger and more specialized community with IndexedDb can handle the heavy lifting. What I wanted was to use IndexedDb like I use my every day LINQ to SQL while not worrying about needing to update with browser compatabilities. I do believe I've mostly accomplished this. There's still more that I plan to add, but I do believe that the bulk of what I wanted from this project has been completed.
+Both projects accomplished or mostly accomplished what they were trying to do. My goal was to create a system I personally believed was easier and more fluid for developers. I'm a big fan of using Respositories with a ton of smart logic to make it so I have to write as little code as possible. In a way, Blazorized.IndexedDb is accomplishing what I wished I could do with IndexedDb. I also wanted a wrapper in which could easily be updated by updating the Dexie.Js file to the newer versions. This way a larger and more specialized community with IndexedDb can handle the heavy lifting. What I wanted was to use IndexedDb like I use my every day LINQ to SQL while not worrying about needing to update with browser compatabilities. I do believe I've mostly accomplished this. There's still more that I plan to add, but I do believe that the bulk of what I wanted from this project has been completed.

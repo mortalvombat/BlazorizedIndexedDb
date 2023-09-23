@@ -1,7 +1,7 @@
 using IndexDb.Example;
-using Magic.IndexedDb;
-using Magic.IndexedDb.Extensions;
-using Magic.IndexedDb.Helpers;
+using Blazorized.IndexedDb;
+using Blazorized.IndexedDb.Extensions;
+using Blazorized.IndexedDb.Helpers;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 

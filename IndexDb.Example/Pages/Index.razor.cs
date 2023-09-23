@@ -1,4 +1,4 @@
-﻿using Magic.IndexedDb.Models;
+﻿using Blazorized.IndexedDb.Models;
 using System;
 
 namespace IndexDb.Example.Pages
@@ -18,7 +18,7 @@ namespace IndexDb.Example.Pages
 
                 try
                 {
-                    var manager = await _MagicDb.GetDbManager(DbNames.Client);
+                    var manager = await _BlazorizedDb.GetDbManager(DbNames.Client);
 
                     await manager.ClearTable<Person>();
 
