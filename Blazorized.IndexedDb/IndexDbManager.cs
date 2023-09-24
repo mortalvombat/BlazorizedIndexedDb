@@ -502,10 +502,11 @@ public class IndexedDbManager
     {
         string schemaName = SchemaHelper.GetSchemaName<T>();
         BlazorizedQuery<T> query = new(schemaName, this);
-
+        Console.WriteLine("Inside Where");
         // Preprocess the predicate to break down Any and All expressions
         var preprocessedPredicate = PreprocessPredicate(predicate);
         _ = preprocessedPredicate.ToString();
+        Console.WriteLine($"preprocessedPredicate = {preprocessedPredicate}");
         CollectBinaryExpressions(preprocessedPredicate.Body, preprocessedPredicate, query.JsonQueries);
 
         return query;
@@ -519,7 +520,7 @@ public class IndexedDbManager
         return Expression.Lambda<Func<T, bool>>(newExpression, predicate.Parameters);
     }
 
-    internal async Task<IList<T>?> WhereV2<T>(string storeName, List<string> jsonQuery, BlazorizedQuery<T> query) where T : class
+    public async Task<IList<T>?> WhereV2<T>(string storeName, List<string> jsonQuery, BlazorizedQuery<T> query) where T : class
     {
         var trans = GenerateTransaction(null);
 
