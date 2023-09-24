@@ -20,9 +20,10 @@ namespace IndexDb.Example.Pages
                 {
                     var manager = await _BlazorizedDb.GetDbManager(DbNames.Client);
 
-                    await manager.ClearTable<Person>();
+                    //await manager.ClearTable<Person>();
 
-                    var AllThePeeps = await manager.GetAll<Person>();
+                    var AllThePeeps = (await manager.Where<Person>(p => p.Name == "Bob" && p._Age == 69).Execute()).ToList();
+                    //r AllThePeeps = await manager.GetAll<Person>();
                     if (AllThePeeps.Count() < 1)
                     {
                         Person[] persons = new Person[] {

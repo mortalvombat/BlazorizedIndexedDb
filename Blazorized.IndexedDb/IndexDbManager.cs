@@ -354,9 +354,7 @@ public class IndexedDbManager
                     convertedRecord = result;
             }
             else
-            {
                 convertedRecord = ManagerHelper.ConvertRecordToDictionary(myClass);
-            }
             var propertyMappings = ManagerHelper.GeneratePropertyMapping<T>();
 
             // Convert the property names in the convertedRecord dictionary
@@ -373,9 +371,7 @@ public class IndexedDbManager
                         processedRecords.Add(dictionary);
                     }
                     else
-                    {
                         processedRecords.Add(updatedRecord);
-                    }
                 }
             }
         }
@@ -440,7 +436,6 @@ public class IndexedDbManager
                     var convertedRecord = ManagerHelper.ConvertRecordToDictionary(item);
 
                     if (primaryKeyValue != null)
-                    {
                         recordsToUpdate.Add(new UpdateRecord<Dictionary<string, object?>>()
                         {
                             Key = primaryKeyValue,
@@ -448,7 +443,6 @@ public class IndexedDbManager
                             StoreName = schemaName,
                             Record = convertedRecord
                         });
-                    }
 
                     await CallJavascriptVoid(IndexedDbFunctions.BULKADD_UPDATE, trans, recordsToUpdate);
                 }
@@ -475,53 +469,43 @@ public class IndexedDbManager
             .FirstOrDefault(p => p.GetCustomAttributes(typeof(BlazorizedPrimaryKeyAttribute), false).Length > 0);
 
         if (primaryKeyProperty == null)
-        {
             throw new InvalidOperationException("No primary key property found with PrimaryKeyDbAttribute.");
-        }
 
         // Check if the key is of the correct type
         if (!primaryKeyProperty.PropertyType.IsInstanceOfType(key))
-        {
             throw new ArgumentException($"Invalid key type. Expected: {primaryKeyProperty.PropertyType}, received: {key.GetType()}");
-        }
 
         var trans = GenerateTransaction(null);
 
         string columnName = primaryKeyProperty.GetPropertyColumnName<BlazorizedPrimaryKeyAttribute>();
 
-        var data = new { DbName = DbName, StoreName = schemaName, Key = columnName, KeyValue = key };
+        var data = new { DbName, StoreName = schemaName, Key = columnName, KeyValue = key };
 
         try
         {
             var propertyMappings = ManagerHelper.GeneratePropertyMapping<TResult>();
             var RecordToConvert = await CallJavascript<Dictionary<string, object>>(IndexedDbFunctions.FIND_ITEMV2, trans, data.DbName, data.StoreName, data.KeyValue);
             if (RecordToConvert != null)
-            {
-                var ConvertedResult = ConvertIndexedDbRecordToCRecord<TResult>(RecordToConvert, propertyMappings);
-                return ConvertedResult;
-            }
+                return ConvertIndexedDbRecordToCRecord<TResult>(RecordToConvert, propertyMappings);
             else
-            {
-                return default(TResult);
-            }
-
+                return default;
         }
         catch (JSException jse)
         {
             RaiseEvent(trans, true, jse.Message);
         }
 
-        return default(TResult);
+        return default;
     }
 
     public BlazorizedQuery<T> Where<T>(Expression<Func<T, bool>> predicate) where T : class
     {
         string schemaName = SchemaHelper.GetSchemaName<T>();
-        BlazorizedQuery<T> query = new BlazorizedQuery<T>(schemaName, this);
+        BlazorizedQuery<T> query = new(schemaName, this);
 
         // Preprocess the predicate to break down Any and All expressions
         var preprocessedPredicate = PreprocessPredicate(predicate);
-        var asdf = preprocessedPredicate.ToString();
+        _ = preprocessedPredicate.ToString();
         CollectBinaryExpressions(preprocessedPredicate.Body, preprocessedPredicate, query.JsonQueries);
 
         return query;
@@ -543,17 +527,12 @@ public class IndexedDbManager
         {
             string? jsonQueryAdditions = null;
             if (query != null && query.StoredBlazorizedQueries != null && query.StoredBlazorizedQueries.Count > 0)
-            {
-                jsonQueryAdditions = Newtonsoft.Json.JsonConvert.SerializeObject(query.StoredBlazorizedQueries.ToArray());
-            }
+                jsonQueryAdditions = JsonConvert.SerializeObject(query.StoredBlazorizedQueries.ToArray());
             var propertyMappings = ManagerHelper.GeneratePropertyMapping<T>();
             IList<Dictionary<string, object>>? ListToConvert =
                 await CallJavascript<IList<Dictionary<string, object>>>
                 (IndexedDbFunctions.WHEREV2, trans, DbName, storeName, jsonQuery.ToArray(), jsonQueryAdditions!, query?.ResultsUnique!);
-
-            var resultList = ConvertListToRecords<T>(ListToConvert, propertyMappings);
-
-            return resultList;
+            return ConvertListToRecords<T>(ListToConvert, propertyMappings);
         }
         catch (Exception jse)
         {
@@ -565,9 +544,7 @@ public class IndexedDbManager
 
     private void CollectBinaryExpressions<T>(Expression expression, Expression<Func<T, bool>> predicate, List<string> jsonQueries) where T : class
     {
-        var binaryExpr = expression as BinaryExpression;
-
-        if (binaryExpr != null && binaryExpr.NodeType == ExpressionType.OrElse)
+        if (expression is BinaryExpression binaryExpr && binaryExpr.NodeType == ExpressionType.OrElse)
         {
             // Split the OR condition into separate expressions
             var left = binaryExpr.Left;
@@ -580,20 +557,18 @@ public class IndexedDbManager
         else
         {
             // If the expression is a single condition, create a query for it
-            var test = expression.ToString();
-            var tes2t = predicate.ToString();
+            _ = expression.ToString();
+            _ = predicate.ToString();
 
             string jsonQuery = GetJsonQueryFromExpression(Expression.Lambda<Func<T, bool>>(expression, predicate.Parameters));
             jsonQueries.Add(jsonQuery);
         }
     }
 
-    private object ConvertValueToType(object value, Type targetType)
+    private static object ConvertValueToType(object value, Type targetType)
     {
         if (targetType == typeof(Guid) && value is string stringValue)
-        {
             return Guid.Parse(stringValue);
-        }
 
         return Convert.ChangeType(value, targetType);
     }
@@ -607,44 +582,30 @@ public class IndexedDbManager
         foreach (var item in listToConvert)
         {
             var record = Activator.CreateInstance<TRecord>();
-
             foreach (var kvp in item)
-            {
                 if (propertyMappings.TryGetValue(kvp.Key, out var propertyName))
                 {
                     var property = recordType.GetProperty(propertyName);
                     var value = ManagerHelper.GetValueFromValueKind(kvp.Value);
-                    if (property != null)
-                    {
-                        property.SetValue(record, ConvertValueToType(value!, property.PropertyType));
-                    }
+                    property?.SetValue(record, ConvertValueToType(value!, property.PropertyType));
                 }
-            }
-
             records.Add(record);
         }
-
         return records;
     }
 
-    private TRecord ConvertIndexedDbRecordToCRecord<TRecord>(Dictionary<string, object> item, Dictionary<string, string> propertyMappings)
+    private static TRecord ConvertIndexedDbRecordToCRecord<TRecord>(Dictionary<string, object> item, Dictionary<string, string> propertyMappings)
     {
         var recordType = typeof(TRecord);
         var record = Activator.CreateInstance<TRecord>();
 
         foreach (var kvp in item)
-        {
             if (propertyMappings.TryGetValue(kvp.Key, out var propertyName))
             {
                 var property = recordType.GetProperty(propertyName);
                 var value = ManagerHelper.GetValueFromValueKind(kvp.Value);
-                if (property != null)
-                {
-                    property.SetValue(record, ConvertValueToType(value!, property.PropertyType));
-                }
+                property?.SetValue(record, ConvertValueToType(value!, property.PropertyType));
             }
-        }
-
         return record;
     }
 
@@ -657,7 +618,6 @@ public class IndexedDbManager
         void TraverseExpression(Expression expression, bool inOrBranch = false)
         {
             if (expression is BinaryExpression binaryExpression)
-            {
                 if (binaryExpression.NodeType == ExpressionType.AndAlso)
                 {
                     TraverseExpression(binaryExpression.Left, inOrBranch);
@@ -666,57 +626,36 @@ public class IndexedDbManager
                 else if (binaryExpression.NodeType == ExpressionType.OrElse)
                 {
                     if (inOrBranch)
-                    {
                         throw new InvalidOperationException("Nested OR conditions are not supported.");
-                    }
 
                     TraverseExpression(binaryExpression.Left, !inOrBranch);
                     TraverseExpression(binaryExpression.Right, !inOrBranch);
                 }
                 else
-                {
                     AddCondition(binaryExpression, inOrBranch);
-                }
-            }
             else if (expression is MethodCallExpression methodCallExpression)
-            {
                 AddCondition(methodCallExpression, inOrBranch);
-            }
         }
 
         void AddCondition(Expression expression, bool inOrBranch)
         {
             if (expression is BinaryExpression binaryExpression)
             {
-                var leftMember = binaryExpression.Left as MemberExpression;
-                var rightMember = binaryExpression.Right as MemberExpression;
-                var leftConstant = binaryExpression.Left as ConstantExpression;
-                var rightConstant = binaryExpression.Right as ConstantExpression;
                 var operation = binaryExpression.NodeType.ToString();
 
-                if (leftMember != null && rightConstant != null)
-                {
+                if (binaryExpression.Left is MemberExpression leftMember && binaryExpression.Right is ConstantExpression rightConstant)
                     AddConditionInternal(leftMember, rightConstant, operation, inOrBranch);
-                }
-                else if (leftConstant != null && rightMember != null)
+                else if (binaryExpression.Left is ConstantExpression leftConstant && binaryExpression.Right is MemberExpression rightMember)
                 {
                     // Swap the order of the left and right expressions and the operation
                     if (operation == "GreaterThan")
-                    {
                         operation = "LessThan";
-                    }
                     else if (operation == "LessThan")
-                    {
                         operation = "GreaterThan";
-                    }
                     else if (operation == "GreaterThanOrEqual")
-                    {
                         operation = "LessThanOrEqual";
-                    }
                     else if (operation == "LessThanOrEqual")
-                    {
                         operation = "GreaterThanOrEqual";
-                    }
 
                     AddConditionInternal(rightMember, leftConstant, operation, inOrBranch);
                 }
@@ -731,14 +670,9 @@ public class IndexedDbManager
                     var operation = methodCallExpression.Method.Name;
                     var caseSensitive = true;
 
-                    if (methodCallExpression.Arguments.Count > 1)
-                    {
-                        var stringComparison = methodCallExpression.Arguments[1] as ConstantExpression;
-                        if (stringComparison != null && stringComparison.Value is StringComparison comparisonValue)
-                        {
-                            caseSensitive = comparisonValue == StringComparison.Ordinal || comparisonValue == StringComparison.CurrentCulture;
-                        }
-                    }
+                    if (methodCallExpression.Arguments.Count > 1 &&
+                        (methodCallExpression.Arguments[1] is ConstantExpression stringComparison && stringComparison.Value is StringComparison comparisonValue))
+                        caseSensitive = comparisonValue == StringComparison.Ordinal || comparisonValue == StringComparison.CurrentCulture;
 
                     AddConditionInternal(left, right, operation == "Equals" ? "StringEquals" : operation, inOrBranch, caseSensitive);
                 }
@@ -757,9 +691,7 @@ public class IndexedDbManager
                     bool primary = propertyInfo.GetCustomAttributes(typeof(BlazorizedPrimaryKeyAttribute), false).Length == 0;
 
                     if (index == true && unique == true && primary == true)
-                    {
                         throw new InvalidOperationException($"Property '{propertyInfo.Name}' does not have the IndexDbAttribute.");
-                    }
 
                     string? columnName = null;
 
@@ -779,12 +711,12 @@ public class IndexedDbManager
                     }
 
                     var jsonCondition = new JObject
-        {
-            { "property", columnName },
-            { "operation", operation },
-            { "value", valSend },
-            { "isString", _isString },
-            { "caseSensitive", caseSensitive }
+                    {
+                        { "property", columnName },
+                        { "operation", operation },
+                        { "value", valSend },
+                        { "isString", _isString },
+                        { "caseSensitive", caseSensitive }
                     };
 
                     if (inOrBranch)
@@ -798,27 +730,23 @@ public class IndexedDbManager
                         currentOrConditions.Add(jsonCondition);
                     }
                     else
-                    {
                         conditions.Add(jsonCondition);
-                    }
                 }
             }
         }
 
         TraverseExpression(predicate.Body);
 
-        if (conditions.Any())
-        {
+        if (conditions.Count != 0)
             orConditions.Add(conditions);
-        }
 
         return JsonConvert.SerializeObject(orConditions, serializerSettings);
     }
 
     public class QuotaUsage
     {
-        public long quota { get; set; }
-        public long usage { get; set; }
+        public long Quota { get; set; }
+        public long Usage { get; set; }
     }
 
     /// <summary>
@@ -829,16 +757,13 @@ public class IndexedDbManager
     {
         var storageInfo = await CallJavascriptNoTransaction<QuotaUsage>(IndexedDbFunctions.GET_STORAGE_ESTIMATE);
 
-        double quotaInMB = ConvertBytesToMegabytes(storageInfo.quota);
-        double usageInMB = ConvertBytesToMegabytes(storageInfo.usage);
+        double quotaInMB = ConvertBytesToMegabytes(storageInfo.Quota);
+        double usageInMB = ConvertBytesToMegabytes(storageInfo.Usage);
         return (quotaInMB, usageInMB);
     }
 
 
-    private static double ConvertBytesToMegabytes(long bytes)
-    {
-        return (double)bytes / (1024 * 1024);
-    }
+    private static double ConvertBytesToMegabytes(long bytes) => (double)bytes / (1024 * 1024);
 
 
     public async Task<IEnumerable<T>> GetAll<T>() where T : class
@@ -887,9 +812,7 @@ public class IndexedDbManager
                     await CallJavascriptVoid(IndexedDbFunctions.DELETE_ITEM, trans, record);
                 }
                 else
-                {
                     throw new ArgumentException("Item being Deleted must have a key.");
-                }
             }
         }
         catch (JSException jse)
@@ -901,15 +824,11 @@ public class IndexedDbManager
 
     public async Task<int> DeleteRange<TResult>(IEnumerable<TResult> items) where TResult : class
     {
-        List<object> keys = new List<object>();
+        List<object> keys = [];
 
         foreach (var item in items)
         {
-            PropertyInfo? primaryKeyProperty = typeof(TResult).GetProperties().FirstOrDefault(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute)));
-            if (primaryKeyProperty == null)
-            {
-                throw new InvalidOperationException("No primary key property found with PrimaryKeyDbAttribute.");
-            }
+            PropertyInfo? primaryKeyProperty = typeof(TResult).GetProperties().FirstOrDefault(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute))) ?? throw new InvalidOperationException("No primary key property found with PrimaryKeyDbAttribute.");
             object? primaryKeyValue = primaryKeyProperty.GetValue(item);
 
             if (primaryKeyValue != null)
@@ -919,7 +838,7 @@ public class IndexedDbManager
 
         var trans = GenerateTransaction(null);
 
-        var data = new { DbName = DbName, StoreName = schemaName, Keys = keys };
+        var data = new { DbName, StoreName = schemaName, Keys = keys };
 
         try
         {
@@ -995,10 +914,8 @@ public class IndexedDbManager
     {
         if (transaction != Guid.Empty)
         {
-            WeakReference<Action<BlazorDbEvent>>? r = null;
-            _transactions.TryGetValue(transaction, out r);
-            TaskCompletionSource<BlazorDbEvent>? t = null;
-            _taskTransactions.TryGetValue(transaction, out t);
+            _transactions.TryGetValue(transaction, out WeakReference<Action<BlazorDbEvent>>? r);
+            _taskTransactions.TryGetValue(transaction, out TaskCompletionSource<BlazorDbEvent>? t);
             if (r != null && r.TryGetTarget(out Action<BlazorDbEvent>? action))
             {
                 action?.Invoke(new BlazorDbEvent()
@@ -1132,7 +1049,7 @@ public class IndexedDbManager
     {
         bool generated = false;
         var transaction = Guid.Empty;
-        TaskCompletionSource<BlazorDbEvent> tcs = new TaskCompletionSource<BlazorDbEvent>();
+        TaskCompletionSource<BlazorDbEvent> tcs = new();
         do
         {
             transaction = Guid.NewGuid();
@@ -1148,7 +1065,7 @@ public class IndexedDbManager
     Guid GenerateTransaction(Action<BlazorDbEvent>? action)
     {
         bool generated = false;
-        Guid transaction = Guid.Empty;
+        Guid transaction;
         do
         {
             transaction = Guid.NewGuid();
