@@ -6,13 +6,14 @@ namespace IndexDb.Example.Pages
 {
     public partial class Index
     {
-        private List<Person> allPeople { get; set; } = new List<Person>();
+        private List<Person> AllPeople { get; set; } = new();
 
         private IEnumerable<Person> WhereExample { get; set; } = Enumerable.Empty<Person>();
 
-        private double storageQuota { get; set; }
-        private double storageUsage { get; set; }
-        public static string PersonName = "Bob";
+        private double StorageQuota { get; set; }
+        private double StorageUsage { get; set; }
+
+        private const string PersonName = "Bob";
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
             if (firstRender)
@@ -27,7 +28,7 @@ namespace IndexDb.Example.Pages
                     Expression<Func<Person, bool>> predicate = p => p.Name == PersonName;
                     var AllThePeeps = (await manager.Where<Person>(predicate).Execute()).ToList();
                     //r AllThePeeps = await manager.GetAll<Person>();
-                    if (AllThePeeps.Count() < 1)
+                    if (AllThePeeps.Count < 1)
                     {
                         Person[] persons = [
                     new() { Name = "Zack", TestInt = 9, _Age = 45, GUIY = Guid.NewGuid(), Secret = "I buried treasure behind my house"},
@@ -46,15 +47,15 @@ namespace IndexDb.Example.Pages
 
                     //var StorageLimit = await manager.GetStorageEstimateAsync();
                     var (quota, usage) = await manager.GetStorageEstimateAsync();
-                    storageQuota = quota;
-                    storageUsage = usage;
+                    StorageQuota = quota;
+                    StorageUsage = usage;
 
                     var allPeopleDecrypted = await manager.GetAll<Person>();
 
                     foreach (Person person in allPeopleDecrypted)
                     {
                         person.SecretDecrypted = await manager.Decrypt(person.Secret);
-                        allPeople.Add(person);
+                        AllPeople.Add(person);
                     }
 
                     WhereExample = await manager.Where<Person>(x => x.Name.StartsWith("c", StringComparison.OrdinalIgnoreCase)

@@ -19,11 +19,11 @@ public class IndexedDbManager
     readonly DbStore _dbStore;
     readonly IJSRuntime _jsRuntime;
     const string InteropPrefix = "window.magicBlazorDB";
-    DotNetObjectReference<IndexedDbManager> _objReference;
-    IDictionary<Guid, WeakReference<Action<BlazorDbEvent>>> _transactions = new Dictionary<Guid, WeakReference<Action<BlazorDbEvent>>>();
-    IDictionary<Guid, TaskCompletionSource<BlazorDbEvent>> _taskTransactions = new Dictionary<Guid, TaskCompletionSource<BlazorDbEvent>>();
+    readonly DotNetObjectReference<IndexedDbManager> _objReference;
+    readonly Dictionary<Guid, WeakReference<Action<BlazorDbEvent>>> _transactions = new();
+    readonly Dictionary<Guid, TaskCompletionSource<BlazorDbEvent>> _taskTransactions = new();
 
-    private IJSObjectReference? _module { get; set; }
+    private IJSObjectReference? Module { get; set; }
     /// <summary>
     /// A notification event that is raised when an action is completed
     /// </summary>
@@ -45,8 +45,8 @@ public class IndexedDbManager
 
     public async Task<IJSObjectReference> GetModule(IJSRuntime jsRuntime)
     {
-        _module ??= await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/Blazorized.IndexedDb/magicDB.js");
-        return _module;
+        Module ??= await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/Blazorized.IndexedDb/magicDB.js");
+        return Module;
     }
 
     public List<StoreSchema> Stores => _dbStore.StoreSchemas;
@@ -89,16 +89,14 @@ public class IndexedDbManager
     public async Task<BlazorDbEvent> DeleteDbAsync(string dbName)
     {
         if (string.IsNullOrEmpty(dbName))
-        {
             throw new ArgumentException("dbName cannot be null or empty", nameof(dbName));
-        }
         var trans = GenerateTransaction();
         await CallJavascriptVoid(IndexedDbFunctions.DELETE_DB, trans.trans, dbName);
         return await trans.task;
     }
 
     /// <summary>
-    /// Adds a new record/object to the specified store
+    /// Adds a new record/obj to the specified store
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="recordToAdd">An instance of StoreRecord that provides the store name and the data to add</param>
@@ -133,18 +131,14 @@ public class IndexedDbManager
         try
         {
             Dictionary<string, object?>? convertedRecord = null;
-            if (processedRecord is ExpandoObject)
+            if (processedRecord is ExpandoObject obj)
             {
-                var result = ((ExpandoObject)processedRecord)?.ToDictionary(kv => kv.Key, kv => (object?)kv.Value);
+                var result = obj?.ToDictionary(kv => kv.Key, kv => (object?)kv.Value);
                 if (result != null)
-                {
                     convertedRecord = result;
-                }
             }
             else
-            {
                 convertedRecord = ManagerHelper.ConvertRecordToDictionary(myClass);
-            }
             var propertyMappings = ManagerHelper.GeneratePropertyMapping<T>();
 
             // Convert the property names in the convertedRecord dictionary
@@ -154,7 +148,7 @@ public class IndexedDbManager
 
                 if (updatedRecord != null)
                 {
-                    StoreRecord<Dictionary<string, object?>> RecordToSend = new StoreRecord<Dictionary<string, object?>>()
+                    StoreRecord<Dictionary<string, object?>> RecordToSend = new()
                     {
                         DbName = this.DbName,
                         StoreName = schemaName,
@@ -174,7 +168,7 @@ public class IndexedDbManager
 
     public async Task<string> Decrypt(string EncryptedValue)
     {
-        EncryptionFactory encryptionFactory = new EncryptionFactory(_jsRuntime, this);
+        EncryptionFactory encryptionFactory = new(_jsRuntime, this);
         string decryptedValue = await encryptionFactory.Decrypt(EncryptedValue, _dbStore.EncryptionKey);
         return decryptedValue;
     }
@@ -182,24 +176,17 @@ public class IndexedDbManager
     private async Task<object?> ProcessRecord<T>(T record) where T : class
     {
         string schemaName = SchemaHelper.GetSchemaName<T>();
-        StoreSchema? storeSchema = Stores.FirstOrDefault(s => s.Name == schemaName);
-
-        if (storeSchema == null)
-        {
-            throw new InvalidOperationException($"StoreSchema not found for '{schemaName}'");
-        }
+        StoreSchema? storeSchema = Stores.FirstOrDefault(s => s.Name == schemaName) ?? throw new InvalidOperationException($"StoreSchema not found for '{schemaName}'");
 
         // Encrypt properties with EncryptDb attribute
         var propertiesToEncrypt = typeof(T).GetProperties()
             .Where(p => p.GetCustomAttributes(typeof(BlazorizedEncryptAttribute), false).Length > 0);
 
-        EncryptionFactory encryptionFactory = new EncryptionFactory(_jsRuntime, this);
+        EncryptionFactory encryptionFactory = new(_jsRuntime, this);
         foreach (var property in propertiesToEncrypt)
         {
             if (property.PropertyType != typeof(string))
-            {
                 throw new InvalidOperationException("EncryptDb attribute can only be used on string properties.");
-            }
 
             string? originalValue = property.GetValue(record) as string;
             if (!string.IsNullOrWhiteSpace(originalValue))
@@ -208,9 +195,7 @@ public class IndexedDbManager
                 property.SetValue(record, encryptedValue);
             }
             else
-            {
                 property.SetValue(record, originalValue);
-            }
         }
 
         // Proceed with adding the record
@@ -241,10 +226,7 @@ public class IndexedDbManager
                 // Create a new ExpandoObject and copy the key-value pairs from the dictionary
                 var expandoRecord = new ExpandoObject() as IDictionary<string, object?>;
                 foreach (var kvp in recordAsDict)
-                {
                     expandoRecord.Add(kvp);
-                }
-
                 return expandoRecord as ExpandoObject;
             }
         }
@@ -253,10 +235,7 @@ public class IndexedDbManager
     }
 
     // Returns the default value for the given type
-    private static object? GetDefaultValue(Type type)
-    {
-        return type.IsValueType ? Activator.CreateInstance(type) : null;
-    }
+    private static object? GetDefaultValue(Type type) => type.IsValueType ? Activator.CreateInstance(type) : null;
 
     /// <summary>
     /// Adds records/objects to the specified store in bulk
@@ -283,14 +262,14 @@ public class IndexedDbManager
     //    string schemaName = SchemaHelper.GetSchemaName<T>();
     //    var propertyMappings = ManagerHelper.GeneratePropertyMapping<T>();
 
-    //    List<object> processedRecords = new List<object>();
+    //    List<obj> processedRecords = new List<obj>();
     //    foreach (var record in records)
     //    {
-    //        object processedRecord = await ProcessRecord(record);
+    //        obj processedRecord = await ProcessRecord(record);
 
     //        if (processedRecord is ExpandoObject)
     //        {
-    //            var convertedRecord = ((ExpandoObject)processedRecord).ToDictionary(kv => kv.Key, kv => (object)kv.Value);
+    //            var convertedRecord = ((ExpandoObject)processedRecord).ToDictionary(kv => kv.Key, kv => (obj)kv.Value);
     //            processedRecords.Add(ManagerHelper.ConvertPropertyNamesUsingMappings(convertedRecord, propertyMappings));
     //        }
     //        else
@@ -330,7 +309,7 @@ public class IndexedDbManager
 
         //var trans = GenerateTransaction(null);
         //var TableCount = await CallJavascript<int>(IndexedDbFunctions.COUNT_TABLE, trans, DbName, schemaName);
-        List<Dictionary<string, object?>> processedRecords = new List<Dictionary<string, object?>>();
+        List<Dictionary<string, object?>> processedRecords = [];
         foreach (var record in records)
         {
             bool IsExpando = false;
@@ -347,9 +326,9 @@ public class IndexedDbManager
 
 
             Dictionary<string, object?>? convertedRecord = null;
-            if (processedRecord is ExpandoObject)
+            if (processedRecord is ExpandoObject obj)
             {
-                var result = ((ExpandoObject)processedRecord)?.ToDictionary(kv => kv.Key, kv => (object?)kv.Value);
+                var result = obj?.ToDictionary(kv => kv.Key, kv => (object?)kv.Value);
                 if (result != null)
                     convertedRecord = result;
             }
@@ -366,7 +345,7 @@ public class IndexedDbManager
                 {
                     if (IsExpando)
                     {
-                        //var test = updatedRecord.Cast<Dictionary<string, object>();
+                        //var test = updatedRecord.Cast<Dictionary<string, obj>();
                         var dictionary = updatedRecord as Dictionary<string, object?>;
                         processedRecords.Add(dictionary);
                     }
@@ -394,7 +373,7 @@ public class IndexedDbManager
                 var convertedRecord = ManagerHelper.ConvertRecordToDictionary(item);
                 if (primaryKeyValue != null)
                 {
-                    UpdateRecord<Dictionary<string, object?>> record = new UpdateRecord<Dictionary<string, object?>>()
+                    UpdateRecord<Dictionary<string, object?>> record = new()
                     {
                         Key = primaryKeyValue,
                         DbName = this.DbName,
@@ -428,7 +407,7 @@ public class IndexedDbManager
 
             if (primaryKeyProperty != null)
             {
-                List<UpdateRecord<Dictionary<string, object?>>> recordsToUpdate = new List<UpdateRecord<Dictionary<string, object?>>>();
+                List<UpdateRecord<Dictionary<string, object?>>> recordsToUpdate = [];
 
                 foreach (var item in items)
                 {
@@ -466,10 +445,7 @@ public class IndexedDbManager
         // Find the primary key property
         var primaryKeyProperty = typeof(TResult)
             .GetProperties()
-            .FirstOrDefault(p => p.GetCustomAttributes(typeof(BlazorizedPrimaryKeyAttribute), false).Length > 0);
-
-        if (primaryKeyProperty == null)
-            throw new InvalidOperationException("No primary key property found with PrimaryKeyDbAttribute.");
+            .FirstOrDefault(p => p.GetCustomAttributes(typeof(BlazorizedPrimaryKeyAttribute), false).Length > 0) ?? throw new InvalidOperationException("No primary key property found with PrimaryKeyDbAttribute.");
 
         // Check if the key is of the correct type
         if (!primaryKeyProperty.PropertyType.IsInstanceOfType(key))
@@ -512,7 +488,7 @@ public class IndexedDbManager
         return query;
     }
 
-    private Expression<Func<T, bool>> PreprocessPredicate<T>(Expression<Func<T, bool>> predicate)
+    private static Expression<Func<T, bool>> PreprocessPredicate<T>(Expression<Func<T, bool>> predicate)
     {
         var visitor = new PredicateVisitor<T>();
         var newExpression = visitor.Visit(predicate.Body);
@@ -575,7 +551,7 @@ public class IndexedDbManager
     }
 
 
-    private IList<TRecord> ConvertListToRecords<TRecord>(IList<Dictionary<string, object>> listToConvert, Dictionary<string, string> propertyMappings)
+    private static List<TRecord> ConvertListToRecords<TRecord>(IList<Dictionary<string, object>> listToConvert, Dictionary<string, string> propertyMappings)
     {
         var records = new List<TRecord>();
         var recordType = typeof(TRecord);
@@ -610,7 +586,7 @@ public class IndexedDbManager
         return record;
     }
 
-    private string GetJsonQueryFromExpression<T>(Expression<Func<T, bool>> predicate) where T : class
+    private static string GetJsonQueryFromExpression<T>(Expression<Func<T, bool>> predicate) where T : class
     {
         var serializerSettings = new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() };
         var conditions = new List<JObject>();
@@ -725,7 +701,7 @@ public class IndexedDbManager
                         var currentOrConditions = orConditions.LastOrDefault();
                         if (currentOrConditions == null)
                         {
-                            currentOrConditions = new List<JObject>();
+                            currentOrConditions = [];
                             orConditions.Add(currentOrConditions);
                         }
                         currentOrConditions.Add(jsonCondition);
@@ -801,7 +777,7 @@ public class IndexedDbManager
                 var convertedRecord = ManagerHelper.ConvertRecordToDictionary(item);
                 if (primaryKeyValue != null)
                 {
-                    UpdateRecord<Dictionary<string, object?>> record = new UpdateRecord<Dictionary<string, object?>>()
+                    UpdateRecord<Dictionary<string, object?>> record = new()
                     {
                         Key = primaryKeyValue,
                         DbName = this.DbName,
@@ -942,7 +918,7 @@ public class IndexedDbManager
         }
     }
 
-    //async Task<TResult> CallJavascriptNoTransaction<TResult>(string functionName, params object[] args)
+    //async Task<TResult> CallJavascriptNoTransaction<TResult>(string functionName, params obj[] args)
     //{
     //    return await _jsRuntime.InvokeAsync<TResult>($"{InteropPrefix}.{functionName}", args);
     //}
@@ -967,10 +943,10 @@ public class IndexedDbManager
     /// <exception cref="ArgumentException"></exception>
     public async Task<TResult> CallJS<TResult>(string functionName, double Timeout, params object[] args)
     {
-        List<object> modifiedArgs = new List<object>(args);
+        List<object> modifiedArgs = new(args);
         modifiedArgs.Insert(0, $"{InteropPrefix}.{functionName}");
 
-        Task<JsResponse<TResult>> task = _jsRuntime.InvokeAsync<JsResponse<TResult>>(dynamicJsCaller, modifiedArgs.ToArray()).AsTask();
+        Task<JsResponse<TResult>> task = _jsRuntime.InvokeAsync<JsResponse<TResult>>(dynamicJsCaller, [.. modifiedArgs]).AsTask();
         Task delay = Task.Delay(TimeSpan.FromMilliseconds(Timeout));
 
         if (await Task.WhenAny(task, delay) == task)
@@ -987,7 +963,7 @@ public class IndexedDbManager
         }
     }
 
-    //public async Task<TResult> CallJS<TResult>(string functionName, JsSettings Settings, params object[] args)
+    //public async Task<TResult> CallJS<TResult>(string functionName, JsSettings Settings, params obj[] args)
     //{
     //    var newArgs = GetNewArgs(Settings.Transaction, args);
 
@@ -1010,12 +986,12 @@ public class IndexedDbManager
 
 
 
-    //async Task<TResult> CallJavascript<TResult>(string functionName, Guid transaction, params object[] args)
+    //async Task<TResult> CallJavascript<TResult>(string functionName, Guid transaction, params obj[] args)
     //{
     //    var newArgs = GetNewArgs(transaction, args);
     //    return await _jsRuntime.InvokeAsync<TResult>($"{InteropPrefix}.{functionName}", newArgs);
     //}
-    //async Task CallJavascriptVoid(string functionName, Guid transaction, params object[] args)
+    //async Task CallJavascriptVoid(string functionName, Guid transaction, params obj[] args)
     //{
     //    var newArgs = GetNewArgs(transaction, args);
     //    await _jsRuntime.InvokeVoidAsync($"{InteropPrefix}.{functionName}", newArgs);
@@ -1049,16 +1025,13 @@ public class IndexedDbManager
     (Guid trans, Task<BlazorDbEvent> task) GenerateTransaction()
     {
         bool generated = false;
-        var transaction = Guid.Empty;
         TaskCompletionSource<BlazorDbEvent> tcs = new();
+        Guid transaction;
         do
         {
             transaction = Guid.NewGuid();
-            if (!_taskTransactions.ContainsKey(transaction))
-            {
+            if (_taskTransactions.TryAdd(transaction, tcs))
                 generated = true;
-                _taskTransactions.Add(transaction, tcs);
-            }
         } while (!generated);
         return (transaction, tcs.Task);
     }
