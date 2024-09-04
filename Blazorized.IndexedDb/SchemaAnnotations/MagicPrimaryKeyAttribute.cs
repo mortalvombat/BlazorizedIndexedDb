@@ -11,7 +11,7 @@ namespace Blazorized.IndexedDb
     public class BlazorizedPrimaryKeyAttribute : Attribute
     {
         [BlazorizedColumnNameDesignator]
-        public string ColumnName { get; }
+        public string? ColumnName { get; }
 
         public BlazorizedPrimaryKeyAttribute(string columnName = null)
         {

@@ -49,7 +49,7 @@ namespace Blazorized.IndexedDb.Helpers
                     var schemaAttribute = type.GetCustomAttribute<BlazorizedTableAttribute>();
                     if (schemaAttribute != null)
                     {
-                        string DbName = string.IsNullOrWhiteSpace(databaseName)? defaultNone: databaseName;
+                        string DbName = string.IsNullOrWhiteSpace(databaseName) ? defaultNone : databaseName;
                         if (schemaAttribute.DatabaseName.Equals(DbName))
                             schemas.Add(GetStoreSchema(type));
                     }
@@ -58,33 +58,43 @@ namespace Blazorized.IndexedDb.Helpers
             return schemas;
         }
 
-        public static StoreSchema GetStoreSchema<T>(string? name = null, bool PrimaryKeyAuto = true) where T : class
+        public static StoreSchema GetStoreSchema<T>(string? name = null, string? primaryKey = null) where T : class
         {
-            Type type = typeof(T);
-            return GetStoreSchema(type, name, PrimaryKeyAuto);
+            return GetStoreSchema(typeof(T), name, primaryKey);
         }
 
-        public static StoreSchema GetStoreSchema(Type type, string? name = null, bool PrimaryKeyAuto = true)
+        public static StoreSchema GetStoreSchema(Type type, string? name = null, string? primaryKey = null)
         {
-            var schema = new StoreSchema
+            var schema = new StoreSchema();
+
+            if (string.IsNullOrWhiteSpace(name))
             {
-                PrimaryKeyAuto = PrimaryKeyAuto
-            };
-            // Get the schema name from the SchemaAnnotationDbAttribute if it exists
-            var schemaAttribute = type.GetCustomAttribute<BlazorizedTableAttribute>();
-            if (schemaAttribute != null)
-                schema.Name = schemaAttribute.SchemaName;
-            else if (!String.IsNullOrWhiteSpace(name))
-                schema.Name = name;
+                // Get the schema name from the SchemaAnnotationDbAttribute if it exists
+                var schemaAttribute = type.GetCustomAttribute<BlazorizedTableAttribute>();
+                schema.Name = schemaAttribute?.SchemaName ?? type.Name;
+            }
             else
-                schema.Name = type.Name;
+            {
+                schema.Name = name;
+            }
 
             // Get the primary key property
-            PropertyInfo? primaryKeyProperty = type.GetProperties().FirstOrDefault(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute))) ?? throw new InvalidOperationException("The entity does not have a primary key attribute.");
-            if (type.GetProperties().Count(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute))) > 1)
-                throw new InvalidOperationException("The entity has more than one primary key attribute.");
+            if (primaryKey != null)
+            {
+                var property = type.GetProperty(primaryKey) ?? throw new InvalidOperationException($"The entity does not have a primare key property with the name '{primaryKey}'");
+                schema.PrimaryKey = primaryKey;
+            }
+            else
+            {
+                //TODO: type.GetPropertyied should be cvalled once, its expensive
+                PropertyInfo? primaryKeyProperty = type.GetProperties().FirstOrDefault(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute)))
+                    ?? throw new InvalidOperationException("The entity does not have a primary key attribute and no primary key is specified");
 
-            schema.PrimaryKey = primaryKeyProperty.GetPropertyColumnName<BlazorizedPrimaryKeyAttribute>();
+                if (type.GetProperties().Count(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute))) > 1)
+                    throw new InvalidOperationException("The entity has more than one primary key attribute.");
+
+                schema.PrimaryKey = primaryKeyProperty.GetPropertyColumnName<BlazorizedPrimaryKeyAttribute>();
+            }
 
             // Get the unique index properties
             var uniqueIndexProperties = type.GetProperties().Where(prop => Attribute.IsDefined(prop, typeof(BlazorizedUniqueIndexAttribute)));

@@ -103,17 +103,16 @@ public class BlazorizedQuery<T>(string schemaName, IndexedDbManager manager) whe
         var uniqueIndexDbAttr = propertyInfo.GetCustomAttribute<BlazorizedUniqueIndexAttribute>();
         var primaryKeyDbAttr = propertyInfo.GetCustomAttribute<BlazorizedPrimaryKeyAttribute>();
 
-        if (indexDbAttr == null && uniqueIndexDbAttr == null && primaryKeyDbAttr == null)
-            throw new ArgumentException("The selected property must have either BlazorizedIndexAttribute, BlazorizedUniqueIndexAttribute, or BlazorizedPrimaryKeyAttribute.");
-
         string? columnName = null;
 
         if (indexDbAttr != null)
-            columnName = propertyInfo.GetPropertyColumnName<BlazorizedIndexAttribute>();
+            columnName = indexDbAttr.ColumnName;
         else if (primaryKeyDbAttr != null)
-            columnName = propertyInfo.GetPropertyColumnName<BlazorizedPrimaryKeyAttribute>();
+            columnName = primaryKeyDbAttr.ColumnName;
         else if (uniqueIndexDbAttr != null)
-            columnName = propertyInfo.GetPropertyColumnName<BlazorizedUniqueIndexAttribute>();
+            columnName = uniqueIndexDbAttr.ColumnName;
+
+        columnName ??= propertyInfo.Name;
 
         var smq = new StoredBlazorizedQuery
         {
@@ -133,17 +132,17 @@ public class BlazorizedQuery<T>(string schemaName, IndexedDbManager manager) whe
         var uniqueIndexDbAttr = propertyInfo.GetCustomAttribute<BlazorizedUniqueIndexAttribute>();
         var primaryKeyDbAttr = propertyInfo.GetCustomAttribute<BlazorizedPrimaryKeyAttribute>();
 
-        if (indexDbAttr == null && uniqueIndexDbAttr == null && primaryKeyDbAttr == null)
-            throw new ArgumentException("The selected property must have either BlazorizedIndexAttribute, BlazorizedUniqueIndexAttribute, or BlazorizedPrimaryKeyAttribute.");
-
         string? columnName = null;
 
+        //TODO: this is copy-pasted all over the place
         if (indexDbAttr != null)
-            columnName = propertyInfo.GetPropertyColumnName<BlazorizedIndexAttribute>();
+            columnName = indexDbAttr.ColumnName;
         else if (primaryKeyDbAttr != null)
-            columnName = propertyInfo.GetPropertyColumnName<BlazorizedPrimaryKeyAttribute>();
+            columnName = primaryKeyDbAttr.ColumnName;
         else if (uniqueIndexDbAttr != null)
-            columnName = propertyInfo.GetPropertyColumnName<BlazorizedUniqueIndexAttribute>();
+            columnName = uniqueIndexDbAttr.ColumnName;
+
+        columnName ??= propertyInfo.Name;
 
         StoredBlazorizedQuery smq = new()
         {

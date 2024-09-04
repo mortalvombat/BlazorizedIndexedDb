@@ -1,12 +1,15 @@
 ﻿using Blazorized.IndexedDb.Models;
+using IndexDb.Example.Models;
 using System;
 using System.Linq.Expressions;
+using System.Runtime.InteropServices;
 
 namespace IndexDb.Example.Pages
 {
     public partial class Index
     {
         private List<Person> AllPeople { get; set; } = new();
+        private List<ManualDto> ManualDtos { get; set; } = new();
 
         private IEnumerable<Person> WhereExample { get; set; } = Enumerable.Empty<Person>();
 
@@ -41,9 +44,35 @@ namespace IndexDb.Example.Pages
                     new() { Name = "Alex", TestInt = 3 , _Age = 80, GUIY = Guid.NewGuid(), Secret = "I'm naked! But nobody can know!" }
                     ];
 
-                        await manager.AddRange(persons);
+                        //await manager.AddRange(persons);
+                        foreach (var p in persons)
+                        {
+                            await manager.Add(p);
+                        }
                     }
 
+                    var manualDtos = await manager.GetAll<ManualDto>();
+
+                    int manualDtoId = 5;
+                    var manualDto = await manager.GetById<ManualDto>(manualDtoId);
+                    if (manualDto == null)
+                    {
+                        var newDto = new ManualDto
+                        {
+                            Id = manualDtoId,
+                            Name = "Foobar"
+                        };
+                        await manager.Add(newDto);
+                        manualDto = await manager.GetById<ManualDto>(manualDtoId);
+                    }
+
+                    //int manualDtoId = 5999767;
+                    //var manualDto = await manager.GetById<Person>(manualDtoId);
+                    //if (manualDto == null)
+                    //{
+                    //    manualDto = new() { Name = "Foo", TestInt = 8, _Age = 5, GUIY = Guid.NewGuid(), Secret = "I like foobar!" };
+                    //    await manager.Add(manualDto);
+                    //}
 
                     //var StorageLimit = await manager.GetStorageEstimateAsync();
                     var (quota, usage) = await manager.GetStorageEstimateAsync();
@@ -57,6 +86,12 @@ namespace IndexDb.Example.Pages
                         person.SecretDecrypted = await manager.Decrypt(person.Secret);
                         AllPeople.Add(person);
                     }
+
+                    AllPeople.Add(new Person
+                    {
+                        id = manualDto.Id,
+                        Name = manualDto.Name
+                    });
 
                     WhereExample = await manager.Where<Person>(x => x.Name.StartsWith("c", StringComparison.OrdinalIgnoreCase)
                     || x.Name.StartsWith("l", StringComparison.OrdinalIgnoreCase)

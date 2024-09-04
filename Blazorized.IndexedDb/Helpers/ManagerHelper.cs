@@ -61,13 +61,15 @@ namespace Blazorized.IndexedDb.Helpers
                 var uniqueIndexDbAttr = property.GetCustomAttribute<BlazorizedUniqueIndexAttribute>();
                 var primaryKeyDbAttr = property.GetCustomAttribute<BlazorizedPrimaryKeyAttribute>();
 
-                var columnName = property.Name;
+                string? columnName = null;
                 if (indexDbAttr != null)
-                    columnName = property.GetPropertyColumnName<BlazorizedIndexAttribute>();
+                    columnName = indexDbAttr.ColumnName;
                 else if (uniqueIndexDbAttr != null)
-                    columnName = property.GetPropertyColumnName<BlazorizedUniqueIndexAttribute>();
+                    columnName = uniqueIndexDbAttr.ColumnName;
                 else if (primaryKeyDbAttr != null)
-                    columnName = property.GetPropertyColumnName<BlazorizedPrimaryKeyAttribute>();
+                    columnName = primaryKeyDbAttr.ColumnName;
+
+                columnName ??= property.Name;
 
                 propertyMappings[columnName] = property.Name;
             }

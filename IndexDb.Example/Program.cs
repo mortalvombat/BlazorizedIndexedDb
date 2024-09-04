@@ -4,6 +4,7 @@ using Blazorized.IndexedDb.Extensions;
 using Blazorized.IndexedDb.Helpers;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using IndexDb.Example.Models;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -19,12 +20,19 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
  */
 string EncryptionKey = "zQfTuWnZi8u7x!A%C*F-JaBdRlUkXp2l";
 
+//var schemas = SchemaHelper.GetAllSchemas(DbNames.Client);
+var schemas = new List<StoreSchema>
+{
+    SchemaHelper.GetStoreSchema<ManualDto>(null, nameof(ManualDto.Id)),
+    SchemaHelper.GetStoreSchema<Person>(null, nameof(Person.id)).WithPrimaryKeyAuto()
+};
+
 builder.Services.AddBlazorDB(options =>
 {
     options.Name = DbNames.Client;
     options.Version = "1";
     options.EncryptionKey = EncryptionKey;
-    options.StoreSchemas = SchemaHelper.GetAllSchemas(DbNames.Client);
+    options.StoreSchemas = schemas;
     options.DbMigrations = new List<DbMigration>
 {
         /*

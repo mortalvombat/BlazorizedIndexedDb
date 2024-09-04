@@ -175,8 +175,7 @@ public class IndexedDbManager
 
     private async Task<object?> ProcessRecord<T>(T record) where T : class
     {
-        string schemaName = SchemaHelper.GetSchemaName<T>();
-        StoreSchema? storeSchema = Stores.FirstOrDefault(s => s.Name == schemaName) ?? throw new InvalidOperationException($"StoreSchema not found for '{schemaName}'");
+        var storeSchema = FindStoreSchema<T>();
 
         // Encrypt properties with EncryptDb attribute
         var propertiesToEncrypt = typeof(T).GetProperties()
@@ -199,39 +198,41 @@ public class IndexedDbManager
         }
 
         // Proceed with adding the record
-        if (storeSchema.PrimaryKeyAuto)
+
+        var primaryKeyProperty = FindPrimaryKey<T>(); //TODO: this is not required, its in the StoreSchema already
+
+        if (primaryKeyProperty != null) //TODO: this is is not required
         {
-            var primaryKeyProperty = typeof(T)
-                .GetProperties()
-                .FirstOrDefault(p => p.GetCustomAttributes(typeof(BlazorizedPrimaryKeyAttribute), false).Length > 0);
+            Dictionary<string, object?> recordAsDict;
 
-            if (primaryKeyProperty != null)
+            var primaryKeyValue = primaryKeyProperty.GetValue(record);
+            if (primaryKeyValue == null || primaryKeyValue.Equals(GetDefaultValue(primaryKeyValue.GetType())))
             {
-                Dictionary<string, object?> recordAsDict;
-
-                var primaryKeyValue = primaryKeyProperty.GetValue(record);
-                if (primaryKeyValue == null || primaryKeyValue.Equals(GetDefaultValue(primaryKeyValue.GetType())))
-                {
-                    recordAsDict = typeof(T).GetProperties()
-                    .Where(p => p.Name != primaryKeyProperty.Name && p.GetCustomAttributes(typeof(BlazorizedNotMappedAttribute), false).Length == 0)
-                    .ToDictionary(p => p.Name, p => p.GetValue(record));
-                }
-                else
-                {
-                    recordAsDict = typeof(T).GetProperties()
-                    .Where(p => p.GetCustomAttributes(typeof(BlazorizedNotMappedAttribute), false).Length == 0)
-                    .ToDictionary(p => p.Name, p => p.GetValue(record));
-                }
-
-                // Create a new ExpandoObject and copy the key-value pairs from the dictionary
-                var expandoRecord = new ExpandoObject() as IDictionary<string, object?>;
-                foreach (var kvp in recordAsDict)
-                    expandoRecord.Add(kvp);
-                return expandoRecord as ExpandoObject;
+                recordAsDict = typeof(T).GetProperties()
+                .Where(p => p.Name != primaryKeyProperty.Name && p.GetCustomAttributes(typeof(BlazorizedNotMappedAttribute), false).Length == 0)
+                .ToDictionary(p => p.Name, p => p.GetValue(record));
             }
+            else
+            {
+                recordAsDict = typeof(T).GetProperties()
+                .Where(p => p.GetCustomAttributes(typeof(BlazorizedNotMappedAttribute), false).Length == 0)
+                .ToDictionary(p => p.Name, p => p.GetValue(record));
+            }
+
+            // Create a new ExpandoObject and copy the key-value pairs from the dictionary
+            var expandoRecord = new ExpandoObject() as IDictionary<string, object?>;
+            foreach (var kvp in recordAsDict)
+                expandoRecord.Add(kvp);
+            return expandoRecord as ExpandoObject;
         }
 
         return record;
+    }
+
+    private StoreSchema FindStoreSchema<T>() where T : class
+    {
+        string schemaName = SchemaHelper.GetSchemaName<T>();
+        return Stores.FirstOrDefault(s => s.Name == schemaName) ?? throw new InvalidOperationException($"StoreSchema not found for '{schemaName}'");
     }
 
     // Returns the default value for the given type
@@ -366,29 +367,21 @@ public class IndexedDbManager
         try
         {
             string schemaName = SchemaHelper.GetSchemaName<T>();
-            PropertyInfo? primaryKeyProperty = typeof(T).GetProperties().FirstOrDefault(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute)));
-            if (primaryKeyProperty != null)
-            {
-                object? primaryKeyValue = primaryKeyProperty.GetValue(item);
-                var convertedRecord = ManagerHelper.ConvertRecordToDictionary(item);
-                if (primaryKeyValue != null)
-                {
-                    UpdateRecord<Dictionary<string, object?>> record = new()
-                    {
-                        Key = primaryKeyValue,
-                        DbName = this.DbName,
-                        StoreName = schemaName,
-                        Record = convertedRecord
-                    };
+            PropertyInfo primaryKeyProperty = FindPrimaryKey<T>();
 
-                    // Get the primary key value of the item
-                    await CallJavascriptVoid(IndexedDbFunctions.UPDATE_ITEM, trans, record);
-                }
-                else
-                {
-                    throw new ArgumentException("Item being updated must have a key.");
-                }
-            }
+            object primaryKeyValue = primaryKeyProperty.GetValue(item) ?? throw new ArgumentException("Item being updated must have a key.");
+            var convertedRecord = ManagerHelper.ConvertRecordToDictionary(item);
+
+            UpdateRecord<Dictionary<string, object?>> record = new()
+            {
+                Key = primaryKeyValue,
+                DbName = this.DbName,
+                StoreName = schemaName,
+                Record = convertedRecord
+            };
+
+            // Get the primary key value of the item
+            await CallJavascriptVoid(IndexedDbFunctions.UPDATE_ITEM, trans, record);
         }
         catch (JSException jse)
         {
@@ -403,7 +396,7 @@ public class IndexedDbManager
         try
         {
             string schemaName = SchemaHelper.GetSchemaName<T>();
-            PropertyInfo? primaryKeyProperty = typeof(T).GetProperties().FirstOrDefault(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute)));
+            PropertyInfo primaryKeyProperty = FindPrimaryKey<T>();
 
             if (primaryKeyProperty != null)
             {
@@ -442,10 +435,7 @@ public class IndexedDbManager
     {
         string schemaName = SchemaHelper.GetSchemaName<TResult>();
 
-        // Find the primary key property
-        var primaryKeyProperty = typeof(TResult)
-            .GetProperties()
-            .FirstOrDefault(p => p.GetCustomAttributes(typeof(BlazorizedPrimaryKeyAttribute), false).Length > 0) ?? throw new InvalidOperationException("No primary key property found with PrimaryKeyDbAttribute.");
+        var primaryKeyProperty = FindPrimaryKey<TResult>();
 
         // Check if the key is of the correct type
         if (!primaryKeyProperty.PropertyType.IsInstanceOfType(key))
@@ -472,6 +462,25 @@ public class IndexedDbManager
         }
 
         return default;
+    }
+
+    private PropertyInfo FindPrimaryKey<TResult>() where TResult : class
+    {
+        //TODO: propertyInfo should be stored in schema, or a similar runtime descriptor
+        // Find the primary key property
+        var propertyFromAttribute = typeof(TResult)
+            .GetProperties()
+            .FirstOrDefault(p => p.GetCustomAttributes(typeof(BlazorizedPrimaryKeyAttribute), false).Length > 0);
+
+        if (propertyFromAttribute != null)
+        {
+            return propertyFromAttribute;
+        }
+
+        var schema = FindStoreSchema<TResult>();
+        var propertyFromSchema = typeof(TResult).GetProperty(schema.PrimaryKey);
+
+        return propertyFromSchema ?? throw new InvalidOperationException($"No primary key property found with PrimaryKeyDbAttribute or by schema ({schema.PrimaryKey})");
     }
 
     public BlazorizedQuery<T> Where<T>(Expression<Func<T, bool>> predicate) where T : class
@@ -663,12 +672,10 @@ public class IndexedDbManager
                 var propertyInfo = typeof(T).GetProperty(left.Member.Name);
                 if (propertyInfo != null)
                 {
+                    //TODO: Attribute is retrieved, just use attr.ColumnName down below, GetPropertyColumnName is not neccessary
                     bool index = propertyInfo.GetCustomAttributes(typeof(BlazorizedIndexAttribute), false).Length == 0;
                     bool unique = propertyInfo.GetCustomAttributes(typeof(BlazorizedUniqueIndexAttribute), false).Length == 0;
                     bool primary = propertyInfo.GetCustomAttributes(typeof(BlazorizedPrimaryKeyAttribute), false).Length == 0;
-
-                    if (index == true && unique == true && primary == true)
-                        throw new InvalidOperationException($"Property '{propertyInfo.Name}' does not have the IndexDbAttribute.");
 
                     string? columnName = null;
 
@@ -678,6 +685,8 @@ public class IndexedDbManager
                         columnName = propertyInfo.GetPropertyColumnName<BlazorizedUniqueIndexAttribute>();
                     else if (primary == false)
                         columnName = propertyInfo.GetPropertyColumnName<BlazorizedPrimaryKeyAttribute>();
+
+                    columnName ??= propertyInfo.Name;
 
                     bool _isString = false;
                     JToken? valSend = null;
@@ -749,8 +758,8 @@ public class IndexedDbManager
 
         try
         {
-            string schemaName = SchemaHelper.GetSchemaName<T>();
-            var propertyMappings = ManagerHelper.GeneratePropertyMapping<T>();
+            string schemaName = FindStoreSchema<T>().Name;
+            var propertyMappings = ManagerHelper.GeneratePropertyMapping<T>(); //TODO: this should be stored in StoreSchema
             IList<Dictionary<string, object>>? ListToConvert = await CallJavascript<IList<Dictionary<string, object>>>(IndexedDbFunctions.TOARRAY, trans, DbName, schemaName);
 
             var resultList = ConvertListToRecords<T>(ListToConvert, propertyMappings);
@@ -770,26 +779,27 @@ public class IndexedDbManager
         try
         {
             string schemaName = SchemaHelper.GetSchemaName<T>();
-            PropertyInfo? primaryKeyProperty = typeof(T).GetProperties().FirstOrDefault(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute)));
-            if (primaryKeyProperty != null)
-            {
-                object? primaryKeyValue = primaryKeyProperty.GetValue(item);
-                var convertedRecord = ManagerHelper.ConvertRecordToDictionary(item);
-                if (primaryKeyValue != null)
-                {
-                    UpdateRecord<Dictionary<string, object?>> record = new()
-                    {
-                        Key = primaryKeyValue,
-                        DbName = this.DbName,
-                        StoreName = schemaName,
-                        Record = convertedRecord
-                    };
+            PropertyInfo primaryKeyProperty = FindPrimaryKey<T>();
 
-                    // Get the primary key value of the item
-                    await CallJavascriptVoid(IndexedDbFunctions.DELETE_ITEM, trans, record);
-                }
-                else
-                    throw new ArgumentException("Item being Deleted must have a key.");
+            //TODO: this is copy-pasted elswhere, extract to GetPrimaryKey(...) fn.
+            object primaryKeyValue = primaryKeyProperty.GetValue(item) ?? throw new ArgumentException("Item being Deleted must have a key."); ;
+            var convertedRecord = ManagerHelper.ConvertRecordToDictionary(item);
+            if (primaryKeyValue != null)
+            {
+                UpdateRecord<Dictionary<string, object?>> record = new()
+                {
+                    Key = primaryKeyValue,
+                    DbName = this.DbName,
+                    StoreName = schemaName,
+                    Record = convertedRecord
+                };
+
+                // Get the primary key value of the item
+                await CallJavascriptVoid(IndexedDbFunctions.DELETE_ITEM, trans, record);
+            }
+            else
+            {
+
             }
         }
         catch (JSException jse)
@@ -805,13 +815,13 @@ public class IndexedDbManager
 
         foreach (var item in items)
         {
-            PropertyInfo? primaryKeyProperty = typeof(TResult).GetProperties().FirstOrDefault(prop => Attribute.IsDefined(prop, typeof(BlazorizedPrimaryKeyAttribute))) ?? throw new InvalidOperationException("No primary key property found with PrimaryKeyDbAttribute.");
+            PropertyInfo primaryKeyProperty = FindPrimaryKey<TResult>();
             object? primaryKeyValue = primaryKeyProperty.GetValue(item);
 
             if (primaryKeyValue != null)
                 keys.Add(primaryKeyValue);
         }
-        string schemaName = SchemaHelper.GetSchemaName<TResult>();
+        string schemaName = FindStoreSchema<TResult>().Name;
 
         var trans = GenerateTransaction(null);
 

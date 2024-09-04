@@ -6,8 +6,11 @@ namespace IndexDb.Example
     [BlazorizedTable("Person", DbNames.Client)]
     public class Person
     {
-        [BlazorizedPrimaryKey("id")]
-        public int _Id { get; set; }
+        //[BlazorizedPrimaryKey("id")]
+        public int id { get; set; }
+
+        [BlazorizedNotMapped]
+        public int _Id => id;
 
         [BlazorizedIndex]
         public string Name { get; set; }
